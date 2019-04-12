@@ -1,0 +1,163 @@
+---
+title: "2 Way ANOVA (Highlights from Sleuth3 Chapter 13)"
+output:
+  pdf_document:
+    fig_height: 2.8
+    fig_width: 6
+  html_document:
+    fig_height: 3
+    fig_width: 5
+  word_document:
+    fig_height: 3
+    fig_width: 5
+header-includes:
+  - \usepackage{booktabs}
+  - \usepackage{vwcol}
+geometry: margin=0.5in
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = FALSE)
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(gridExtra)
+options(width = 100)
+```
+
+## Paper airplanes
+
+A motivated paper airplane thrower measured
+
+* The `Distance` travelled (response)
+* The `Design` (dart or glider) and whether or not `flaps` were put on the wings (Flaps or None)
+
+```{r, echo = FALSE, message = FALSE}
+planes <- read_csv("http://www.evanlray.com/data/sdm3/Chapter_29/Ch29_Paper_Planes.csv") %>%
+  filter(Paper == "Copier")
+```
+
+```{r, fig.height = 1.95}
+ggplot(data = planes, mapping = aes(x = flaps, y = Distance, color = Design)) +
+  geom_boxplot() +
+  theme_bw()
+```
+
+#### 1. Fit a model for the mean distance, using flaps and design as explanatory variables.  Allow for interactions between flaps and design in your model fit.  Print out a summary of the linear model fit
+
+```{r}
+lm_fit <- lm(Distance ~ flaps * Design, data = planes)
+summary(lm_fit)
+```
+
+#### 2. Write down a single equation for the estimated mean distance function based on the flaps and design variables.
+
+$\hat{\mu}(Distance | flaps, Design) = 19.30 + 4.48 flapsNone - 6.44 DesignGlider - 7.39 flapsNone \times DesignGlider$
+
+#### 3. State how you could use the summary output from part 1 to calculate the estimated mean distances for all four combinations of settings for flaps and design.
+
+\begin{align*}
+\hat{\mu}(Distance | flaps="Flaps", Design="Dart") &= 19.30 + 4.48 \times 0 - 6.44 \times 0 - 7.39 \times 0 \times 0 \\
+&= 19.30
+\end{align*}
+
+\begin{align*}
+\hat{\mu}(Distance | flaps="None", Design="Dart") &= 19.30 + 4.48 \times 1 - 6.44 \times 0 - 7.39 \times 1 \times 0 \\
+&= 19.30 + 4.48
+\end{align*}
+
+\begin{align*}
+\hat{\mu}(Distance | flaps="Flaps", Design="Glider") &= 19.30 + 4.48 \times 0 - 6.44 \times 1 - 7.39 \times 0 \times 1 \\
+&= 19.30 - 6.44
+\end{align*}
+
+\begin{align*}
+\hat{\mu}(Distance | flaps="None", Design="Glider") &= 19.30 + 4.48 \times 1 - 6.44 \times 1 - 7.39 \times 1 \times 1 \\
+&= 19.30 + 4.48 - 6.44 - 7.39
+\end{align*}
+
+#### REVISED NUMBER 4: Based on the model fit from part 1, find a 95% confidence interval for the difference in means between DART planes with and without flaps.  Interpret your confidence interval in context.
+
+```{r}
+confint(lm_fit)
+```
+
+We are 95% confident that in the population of planes folded by this person, the mean distance traveled by dart planes without flaps is between 2.5 nd 6.4 feet farther than the mean distance traveled by dart planes with flaps.
+
+#### 4. Based on the model fit from part 1, find a 95% confidence interval for the difference in means between glider planes with and without flaps.  Interpret your confidence interval in context.
+
+```{r}
+# code for the original question (not the revised question)
+planes2 <- planes %>%
+  mutate(
+    Design = factor(Design, levels = c("Glider", "Dart"))
+  )
+
+fit2 <- lm(Distance ~ flaps * Design, data = planes2)
+summary(fit2)
+confint(fit2)
+```
+
+We are 95% confident that in the population of planes folded by this person, the mean distance traveled by glider planes without flaps is between 4.9 nd 0.9 feet shorter than the mean distance traveled by glider planes with flaps.
+
+#### 5. Based on the model fit from part 1, find a 95% confidence interval for the mean distance for glider planes that don't have flaps.  Interpret your confidence interval in context.
+
+You will have to define a new data frame with variables Design and flaps that have the appropriate variable values, and call predict using that new data frame.
+
+```{r}
+predict_data <- data.frame(
+  Design = "Glider",
+  flaps = "None"
+)
+
+predict(lm_fit, newdata = predict_data, interval = "confidence", level = 0.95)
+```
+
+We are 95% confident that in the population of planes folded by this person, the mean distance traveled by glider planes without flaps is between 8.6 and 11.3 feet.
+
+#### 6. Based on the model fit from part 1, find a 95% prediction interval for the mean distance for dart planes that don't have flaps.
+
+Again, you'll have to define a suitable data frame with variables Design and flaps.
+
+```{r}
+predict_data <- data.frame(
+  Design = "Dart",
+  flaps = "None"
+)
+
+predict(lm_fit, newdata = predict_data, interval = "prediction", level = 0.95)
+
+```
+
+We are 95% confident that a dart plane without flaps randomly selected from the population of planes folded by this person will travel between 19.6 and 28.0 feet.
+
+#### 7. Conduct a test of the claim that adding flaps to a plane will increase the mean distance flown by the same amount, regardless of the airplane design.  State your hypotheses in terms of equations involving the model coefficients $\beta_0$, $\beta_1$, $\beta_2$, and $\beta_3$, and draw a conclusion in terms of the strength of evidence against the null hypothesis.
+
+$H_0: \beta_3 = 0$
+
+$H_A: \beta_3 \neq 0$
+
+From the summary output above, the p-value for this test is 8.18e-06. The data provide extremely strong evidence against the null hypothesis that adding flaps to a plane will increase the mean distance flown by the same amount, regardless of the airplane design.
+
+#### 8. Conduct a test of the claim that whether or not you add flaps to a plane has no impact on the mean distance flown.  State your hypotheses in terms of equations involving the model coefficients $\beta_0$, $\beta_1$, $\beta_2$, and $\beta_3$, and draw a conclusion in terms of the strength of evidence against the null hypothesis.
+
+$H_0: \beta_1 = \beta_3 = 0$
+
+$H_A:$ At least one of $\beta_1$ and $\beta_3$ is not equal to 0
+
+We will fit a reduced model that does not include the flaps variable at all, and compare it to our full model using an F test via the `anova` command.
+
+```{r}
+fit_reduced <- lm(Distance ~ Design, data = planes)
+anova(fit_reduced, lm_fit)
+```
+
+The p-value for this test is $2.9 \times 10^{-5}$.  The data provide extremely strong evidence against the null hypothesis that whether or not a plane has flaps has no association with the mean distance traveled.
+
+#### 9. Conduct a test of the claim that all paper airplanes fly the same distance on average, across both designs and whether or not flaps are used.  State your hypotheses in terms of equations involving the model coefficients $\beta_0$, $\beta_1$, $\beta_2$, and $\beta_3$, and draw a conclusion in terms of the strength of evidence against the null hypothesis.
+
+$H_0: \beta_1 = \beta_2 = \beta_3 = 0$
+
+$H_A:$ At least one of $\beta_1$, $\beta_2$, and $\beta_3$ is not equal to 0.
+
+This is an F test; the p-value is reported in the final line of the summary output for the original linear model fit.  The p-value is 3.727e-14.  The data provide extremely strong evidence against the null hypothesis that the mean distance travelled is the same regardless of which design is used or whether or not flaps are included.
